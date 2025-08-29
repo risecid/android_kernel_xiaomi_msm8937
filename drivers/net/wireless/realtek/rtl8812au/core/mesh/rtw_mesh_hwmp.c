@@ -1334,7 +1334,7 @@ void rtw_mesh_queue_preq(struct rtw_mesh_path *path, u8 flags)
 		rtw_mesh_work(&adapter->mesh_work);
 	} else
 		rtw_mod_timer(&adapter->mesh_path_timer, minfo->last_preq +
-					rtw_min_preq_int_jiff(adapter) + 1);
+						rtw_min_preq_int_jiff(adapter));
 }
 
 static const u8 *rtw_hwmp_preq_da(struct rtw_mesh_path *path,
@@ -1601,19 +1601,10 @@ void rtw_mesh_work_hdl(_workitem *work)
 {
 	_adapter *adapter = container_of(work, _adapter, mesh_work);
 
-	while(adapter->mesh_info.preq_queue_len) {
-		if (rtw_time_after(rtw_get_current_time(),
-		       adapter->mesh_info.last_preq + rtw_min_preq_int_jiff(adapter)))
-		       /* It will consume preq_queue_len */
-		       rtw_mesh_path_start_discovery(adapter);
-		else {
-			struct rtw_mesh_info *minfo = &adapter->mesh_info;
-
-			rtw_mod_timer(&adapter->mesh_path_timer,
-				minfo->last_preq + rtw_min_preq_int_jiff(adapter) + 1);
-			break;
-		}
-	}
+	if (adapter->mesh_info.preq_queue_len &&
+		rtw_time_after(rtw_get_current_time(),
+		       adapter->mesh_info.last_preq + rtw_ms_to_systime(adapter->mesh_cfg.dot11MeshHWMPpreqMinInterval)))
+		rtw_mesh_path_start_discovery(adapter);
 
 	if (rtw_test_and_clear_bit(RTW_MESH_WORK_ROOT, &adapter->wrkq_flags))
 		rtw_ieee80211_mesh_rootpath(adapter);

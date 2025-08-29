@@ -16,6 +16,13 @@
 
 #include <drv_types.h>
 
+#if defined(PLATFORM_LINUX) && defined (PLATFORM_WINDOWS)
+
+	#error "Shall be Linux or Windows, but not both!\n"
+
+#endif
+
+
 bool test_st_match_rule(_adapter *adapter, u8 *local_naddr, u8 *local_port, u8 *remote_naddr, u8 *remote_port)
 {
 	if (ntohs(*((u16 *)local_port)) == 5001 || ntohs(*((u16 *)remote_port)) == 5001)
@@ -34,7 +41,7 @@ inline void rtw_st_ctl_init(struct st_ctl_t *st_ctl)
 	_rtw_init_queue(&st_ctl->tracker_q);
 }
 
-inline void rtw_st_ctl_clear_tracker_q(struct st_ctl_t *st_ctl)
+static inline void rtw_st_ctl_clear_tracker_q(struct st_ctl_t *st_ctl)
 {
 	_irqL irqL;
 	_list *plist, *phead;
@@ -343,43 +350,22 @@ inline struct sta_info *rtw_get_stainfo_by_offset(struct sta_priv *stapriv, int 
 	return (struct sta_info *)(stapriv->pstainfo_buf + offset * sizeof(struct sta_info));
 }
 
-void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv);
 void	_rtw_free_sta_xmit_priv_lock(struct sta_xmit_priv *psta_xmitpriv)
 {
-
-	_rtw_spinlock_free(&psta_xmitpriv->lock);
-
-	_rtw_spinlock_free(&(psta_xmitpriv->be_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->bk_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->vi_q.sta_pending.lock));
-	_rtw_spinlock_free(&(psta_xmitpriv->vo_q.sta_pending.lock));
 }
 
 static void	_rtw_free_sta_recv_priv_lock(struct sta_recv_priv *psta_recvpriv)
 {
-
-	_rtw_spinlock_free(&psta_recvpriv->lock);
-
-	_rtw_spinlock_free(&(psta_recvpriv->defrag_q.lock));
-
-
 }
 
-void rtw_mfree_stainfo(struct sta_info *psta);
 void rtw_mfree_stainfo(struct sta_info *psta)
 {
-
-	if (&psta->lock != NULL)
-		_rtw_spinlock_free(&psta->lock);
-
 	_rtw_free_sta_xmit_priv_lock(&psta->sta_xmitpriv);
 	_rtw_free_sta_recv_priv_lock(&psta->sta_recvpriv);
-
 }
 
 
 /* this function is used to free the memory of lock || sema for all stainfos */
-void rtw_mfree_all_stainfo(struct sta_priv *pstapriv);
 void rtw_mfree_all_stainfo(struct sta_priv *pstapriv)
 {
 	_irqL	 irqL;
@@ -408,18 +394,6 @@ void rtw_mfree_sta_priv_lock(struct	sta_priv *pstapriv);
 void rtw_mfree_sta_priv_lock(struct	sta_priv *pstapriv)
 {
 	rtw_mfree_all_stainfo(pstapriv); /* be done before free sta_hash_lock */
-
-	_rtw_spinlock_free(&pstapriv->free_sta_queue.lock);
-
-	_rtw_spinlock_free(&pstapriv->sta_hash_lock);
-	_rtw_spinlock_free(&pstapriv->wakeup_q.lock);
-	_rtw_spinlock_free(&pstapriv->sleep_q.lock);
-
-#ifdef CONFIG_AP_MODE
-	_rtw_spinlock_free(&pstapriv->asoc_list_lock);
-	_rtw_spinlock_free(&pstapriv->auth_list_lock);
-#endif
-
 }
 
 u32	_rtw_free_sta_priv(struct	sta_priv *pstapriv)
@@ -491,7 +465,7 @@ static void rtw_init_recv_timer(struct recv_reorder_ctrl *preorder_ctrl)
 /* struct	sta_info *rtw_alloc_stainfo(_queue *pfree_sta_queue, unsigned char *hwaddr) */
 struct	sta_info *rtw_alloc_stainfo(struct	sta_priv *pstapriv, const u8 *hwaddr)
 {
-	_irqL irqL2;
+	_irqL irqL, irqL2;
 	s32	index;
 	_list	*phash_list;
 	struct sta_info	*psta;
@@ -505,13 +479,13 @@ struct	sta_info *rtw_alloc_stainfo(struct	sta_priv *pstapriv, const u8 *hwaddr)
 
 	/* _enter_critical_bh(&(pfree_sta_queue->lock), &irqL); */
 	_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL2);
-	if (!pstapriv->padapter->pnetdev || _rtw_queue_empty(pfree_sta_queue) == _TRUE) {
+	if (_rtw_queue_empty(pfree_sta_queue) == _TRUE) {
+		/* _exit_critical_bh(&(pfree_sta_queue->lock), &irqL); */
+		_exit_critical_bh(&(pstapriv->sta_hash_lock), &irqL2);
 		psta = NULL;
 	} else {
 		psta = LIST_CONTAINOR(get_next(&pfree_sta_queue->queue), struct sta_info, list);
 
-		if (!psta)
-			goto exit;
 		rtw_list_delete(&(psta->list));
 
 		/* _exit_critical_bh(&(pfree_sta_queue->lock), &irqL); */
@@ -588,7 +562,6 @@ struct	sta_info *rtw_alloc_stainfo(struct	sta_priv *pstapriv, const u8 *hwaddr)
 #endif
 		/* init for the sequence number of received management frame */
 		psta->RxMgmtFrameSeqNum = 0xffff;
-		_rtw_memset(&psta->sta_stats, 0, sizeof(struct stainfo_stats));
 
 		rtw_alloc_macid(pstapriv->padapter, psta);
 
@@ -802,6 +775,10 @@ u32	rtw_free_stainfo(_adapter *padapter , struct sta_info *psta)
 			pstapriv->sta_aid[psta->cmn.aid - 1] = NULL;
 			psta->cmn.aid = 0;
 		}
+		if (psta->cmn.aid > 31) {
+			pr_err("***** psta->aid (%d) out of bounds\n", psta->cmn.aid);
+			return _FAIL;
+		}
 	}
 
 #endif /* CONFIG_NATIVEAP_MLME	 */
@@ -815,8 +792,6 @@ u32	rtw_free_stainfo(_adapter *padapter , struct sta_info *psta)
 	rtw_st_ctl_deinit(&psta->st_ctl);
 
 	if (is_pre_link_sta == _FALSE) {
-		_rtw_spinlock_free(&psta->lock);
-
 		/* _enter_critical_bh(&(pfree_sta_queue->lock), &irqL0); */
 		_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
 		rtw_list_insert_tail(&psta->list, get_list_head(pfree_sta_queue));
@@ -1303,7 +1278,7 @@ void rtw_pre_link_sta_ctl_deinit(struct sta_priv *stapriv)
 
 	rtw_pre_link_sta_ctl_reset(stapriv);
 
-	_rtw_spinlock_free(&pre_link_sta_ctl->lock);
+	}
 }
 
 void dump_pre_link_sta_ctl(void *sel, struct sta_priv *stapriv)

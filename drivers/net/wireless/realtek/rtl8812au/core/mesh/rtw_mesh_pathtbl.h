@@ -162,12 +162,8 @@ struct rtw_mesh_path *rtw_mpp_path_lookup(_adapter *adapter,
 				  const u8 *dst);
 int rtw_mpp_path_add(_adapter *adapter,
 		 const u8 *dst, const u8 *mpp);
-void dump_mpp(void *sel, _adapter *adapter);
-
 struct rtw_mesh_path *
 rtw_mesh_path_lookup_by_idx(_adapter *adapter, int idx);
-void dump_mpath(void *sel, _adapter *adapter);
-
 struct rtw_mesh_path *
 rtw_mpp_path_lookup_by_idx(_adapter *adapter, int idx);
 void rtw_mesh_path_fix_nexthop(struct rtw_mesh_path *mpath, struct sta_info *next_hop);
@@ -181,8 +177,6 @@ void rtw_mesh_gate_del(struct rtw_mesh_table *tbl, struct rtw_mesh_path *mpath);
 bool rtw_mesh_gate_search(struct rtw_mesh_table *tbl, const u8 *addr);
 int rtw_mesh_path_send_to_gates(struct rtw_mesh_path *mpath);
 int rtw_mesh_gate_num(_adapter *adapter);
-bool rtw_mesh_is_primary_gate(_adapter *adapter);
-void dump_known_gates(void *sel, _adapter *adapter);
 
 void rtw_mesh_plink_broken(struct sta_info *sta);
 

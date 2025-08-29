@@ -15,9 +15,13 @@
 #ifndef _WIFI_H_
 #define _WIFI_H_
 
-#ifndef BIT
-#define BIT(x)	(1 << (x))
+
+#ifdef BIT
+/* #error	"BIT define occurred earlier elsewhere!\n" */
+#undef BIT
 #endif
+#define BIT(x)	(1 << (x))
+
 
 #define WLAN_ETHHDR_LEN		14
 #define WLAN_ETHADDR_LEN	6
@@ -40,7 +44,6 @@
 #define WLAN_MAX_ETHFRM_LEN	1514
 #define WLAN_ETHHDR_LEN		14
 #define WLAN_WMM_LEN		24
-#define VENDOR_NAME_LEN		20
 
 #ifdef CONFIG_APPEND_VENDOR_IE_ENABLE
 #define WLAN_MAX_VENDOR_IE_LEN 255
@@ -50,13 +53,6 @@
 #define WIFI_PROBERESP_VENDOR_IE_BIT BIT(2)
 #define WIFI_ASSOCREQ_VENDOR_IE_BIT BIT(3)
 #define WIFI_ASSOCRESP_VENDOR_IE_BIT BIT(4)
-#ifdef CONFIG_P2P
-#define WIFI_P2P_PROBEREQ_VENDOR_IE_BIT BIT(5)
-#define WIFI_P2P_PROBERESP_VENDOR_IE_BIT BIT(6)
-#define WLAN_MAX_VENDOR_IE_MASK_MAX 7
-#else
-#define WLAN_MAX_VENDOR_IE_MASK_MAX 5
-#endif
 #endif
 
 #define P80211CAPTURE_VERSION	0x80211001
@@ -1031,19 +1027,16 @@ typedef enum _HT_CAP_AMPDU_DENSITY {
  * A-PMDU buffer sizes
  * According to IEEE802.11n spec size varies from 8K to 64K (in powers of 2)
  */
-#define IEEE80211_MIN_AMPDU_BUF 0x8
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
-#define IEEE80211_MAX_AMPDU_BUF_HT 0x40
-#define IEEE80211_MAX_AMPDU_BUF 0x100
-#else
-#define IEEE80211_MAX_AMPDU_BUF_HT 0x40
-#endif
+//#define IEEE80211_MIN_AMPDU_BUF 0x8
+//#define IEEE80211_MAX_AMPDU_BUF 0x40
+
 
 /* Spatial Multiplexing Power Save Modes */
 #define WLAN_HT_CAP_SM_PS_STATIC		0
 #define WLAN_HT_CAP_SM_PS_DYNAMIC	1
 #define WLAN_HT_CAP_SM_PS_INVALID	2
 #define WLAN_HT_CAP_SM_PS_DISABLED	3
+
 
 #define OP_MODE_PURE                    0
 #define OP_MODE_MAY_BE_LEGACY_STAS      1
@@ -1071,6 +1064,8 @@ typedef enum _HT_CAP_AMPDU_DENSITY {
 #define HT_INFO_STBC_PARAM_LSIG_TXOP_PROTECT_ALLOWED	((u16) BIT(9))
 #define HT_INFO_STBC_PARAM_PCO_ACTIVE			((u16) BIT(10))
 #define HT_INFO_STBC_PARAM_PCO_PHASE			((u16) BIT(11))
+
+
 
 /* #endif */
 

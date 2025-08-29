@@ -13,6 +13,7 @@
  *
  *****************************************************************************/
 
+
 #define _OSDEP_SERVICE_C_
 
 #include <drv_types.h>
@@ -25,6 +26,7 @@ atomic_t _malloc_cnt = ATOMIC_INIT(0);
 atomic_t _malloc_size = ATOMIC_INIT(0);
 #endif
 #endif /* DBG_MEMORY_LEAK */
+
 
 #if defined(PLATFORM_LINUX)
 /*
@@ -71,37 +73,11 @@ u32 rtw_atoi(u8 *s)
 
 }
 
-inline void *_rtw_vmalloc(u32 sz)
-{
-	void *pbuf;
-#ifdef PLATFORM_LINUX
-	pbuf = vmalloc(sz);
-#endif
-#ifdef PLATFORM_FREEBSD
-	pbuf = malloc(sz, M_DEVBUF, M_NOWAIT);
-#endif
-
-#ifdef PLATFORM_WINDOWS
-	NdisAllocateMemoryWithTag(&pbuf, sz, RT_TAG);
-#endif
-
-#ifdef DBG_MEMORY_LEAK
-#ifdef PLATFORM_LINUX
-	if (pbuf != NULL) {
-		atomic_inc(&_malloc_cnt);
-		atomic_add(sz, &_malloc_size);
-	}
-#endif
-#endif /* DBG_MEMORY_LEAK */
-
-	return pbuf;
-}
-
 inline void *_rtw_zvmalloc(u32 sz)
 {
 	void *pbuf;
 #ifdef PLATFORM_LINUX
-	pbuf = _rtw_vmalloc(sz);
+	pbuf = vmalloc(sz);
 	if (pbuf != NULL)
 		memset(pbuf, 0, sz);
 #endif
@@ -310,7 +286,7 @@ inline struct sk_buff *_rtw_skb_clone(struct sk_buff *skb)
 	return skb_clone(skb);
 #endif /* PLATFORM_FREEBSD */
 }
-inline struct sk_buff *_rtw_pskb_copy(struct sk_buff *skb)
+static inline struct sk_buff *_rtw_pskb_copy(struct sk_buff *skb)
 {
 #ifdef PLATFORM_LINUX
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36))
@@ -573,7 +549,7 @@ inline void *dbg_rtw_vmalloc(u32 sz, const enum mstat_f flags, const char *func,
 	if (match_mstat_sniff_rules(flags, sz))
 		RTW_INFO("DBG_MEM_ALLOC %s:%d %s(%d)\n", func, line, __FUNCTION__, (sz));
 
-	p = _rtw_vmalloc((sz));
+	p = vmalloc((sz));
 
 	rtw_mstat_update(
 		flags
@@ -1396,19 +1372,6 @@ void	_rtw_spinlock_init(_lock *plock)
 
 }
 
-void	_rtw_spinlock_free(_lock *plock)
-{
-#ifdef PLATFORM_FREEBSD
-	mtx_destroy(plock);
-#endif
-
-#ifdef PLATFORM_WINDOWS
-
-	NdisFreeSpinLock(plock);
-
-#endif
-
-}
 #ifdef PLATFORM_FREEBSD
 extern PADAPTER prtw_lock;
 
@@ -1515,7 +1478,6 @@ void _rtw_init_queue(_queue *pqueue)
 
 void _rtw_deinit_queue(_queue *pqueue)
 {
-	_rtw_spinlock_free(&(pqueue->lock));
 }
 
 u32	  _rtw_queue_empty(_queue	*pqueue)
@@ -1804,20 +1766,6 @@ void rtw_yield_os(void)
 #ifdef PLATFORM_WINDOWS
 	SwitchToThread();
 #endif
-}
-
-bool rtw_macaddr_is_larger(const u8 *a, const u8 *b)
-{
-	u32 va, vb;
-
-	va = be32_to_cpu(*((u32 *)a));
-	vb = be32_to_cpu(*((u32 *)b));
-	if (va > vb)
-		return 1;
-	else if (va < vb)
-		return 0;
-
-	return be16_to_cpu(*((u16 *)(a + 4))) > be16_to_cpu(*((u16 *)(b + 4)));
 }
 
 #define RTW_SUSPEND_LOCK_NAME "rtw_wifi"
@@ -2199,11 +2147,7 @@ static int isFileReadable(const char *path, u32 *sz)
 		ret = PTR_ERR(fp);
 	else {
 		oldfs = get_fs();
-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
 		set_fs(KERNEL_DS);
-		#else
-		set_fs(get_ds());
-		#endif
 
 		if (1 != readFile(fp, &buf, 1))
 			ret = PTR_ERR(fp);
@@ -2241,11 +2185,7 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 			RTW_INFO("%s openFile path:%s fp=%p\n", __FUNCTION__, path , fp);
 
 			oldfs = get_fs();
-			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
 			set_fs(KERNEL_DS);
-			#else
-			set_fs(get_ds());
-			#endif
 			ret = readFile(fp, buf, sz);
 			set_fs(oldfs);
 			closeFile(fp);
@@ -2280,11 +2220,7 @@ static int storeToFile(const char *path, u8 *buf, u32 sz)
 			RTW_INFO("%s openFile path:%s fp=%p\n", __FUNCTION__, path , fp);
 
 			oldfs = get_fs();
-			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
 			set_fs(KERNEL_DS);
-			#else
-			set_fs(get_ds());
-			#endif
 			ret = writeFile(fp, buf, sz);
 			set_fs(oldfs);
 			closeFile(fp);
@@ -2388,13 +2324,6 @@ struct net_device *rtw_alloc_etherdev_with_old_priv(int sizeof_priv, void *old_p
 	if (!pnetdev)
 		goto RETURN;
 
-
-	pnetdev->mtu = WLAN_MAX_ETHFRM_LEN;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
-	pnetdev->min_mtu = WLAN_MIN_ETHFRM_LEN;
-	pnetdev->max_mtu = WLAN_DATA_MAXLEN;
-#endif
-
 	pnpi = netdev_priv(pnetdev);
 	pnpi->priv = old_priv;
 	pnpi->sizeof_priv = sizeof_priv;
@@ -2415,12 +2344,6 @@ struct net_device *rtw_alloc_etherdev(int sizeof_priv)
 #endif
 	if (!pnetdev)
 		goto RETURN;
-
-	pnetdev->mtu = WLAN_MAX_ETHFRM_LEN;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
-	pnetdev->min_mtu = WLAN_MIN_ETHFRM_LEN;
-	pnetdev->max_mtu = WLAN_DATA_MAXLEN;
-#endif
 
 	pnpi = netdev_priv(pnetdev);
 
