@@ -414,7 +414,7 @@ void rtw_led_set_strategy(_adapter *adapter, u8 strategy);
 void rtw_sw_led_blink_uc_trx_only(LED_DATA *led);
 void rtw_sw_led_ctl_mode_uc_trx_only(_adapter *adapter, LED_CTL_MODE ctl);
 #endif
-void rtw_led_control(_adapter *adapter, LED_CTL_MODE LedAction);
+void rtw_led_control(_adapter *adapter, LED_CTL_MODE ctl);
 void rtw_led_tx_control(_adapter *adapter, const u8 *da);
 void rtw_led_rx_control(_adapter *adapter, const u8 *da);
 void rtw_led_set_iface_en(_adapter *adapter, u8 en);

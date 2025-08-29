@@ -319,10 +319,6 @@ struct registry_priv {
 	u8 fw_iol; /* enable iol without other concern */
 #endif
 
-#ifdef CONFIG_SW_LED
-    u8 led_enable;
-#endif
-
 #ifdef CONFIG_80211D
 	u8 enable80211d;
 #endif
